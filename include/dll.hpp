@@ -3,14 +3,13 @@
 #include "types.hpp"
 #include "file_headers.hpp"
 #include "tables.hpp"
-#include "method_state.hpp"
 
 #include <string>
 #include <stdio.h>
 #include <cstring>
 #include <vector>
 
-namespace csharp {
+namespace ili {
 
 #define OFFSET(base, offset) (reinterpret_cast<u8*>(base) + offset)
 #define VRA_TO_OFFSET(section, rva) section->rawDataPointer + (rva - section->virtualAddress)
@@ -122,6 +121,8 @@ namespace csharp {
                 exit(1);
             } else printf("Valid NT Header!\n");
 
+            printf("Stack size: %lx\n", this->getStackSize());
+
             if (this->m_crlRuntimeHeader->headerSize != sizeof(crl_runtime_header_t)) {
                 printf("Invalid CLR Header!\n");
                 exit(1);
@@ -148,42 +149,6 @@ namespace csharp {
             }
         }
 
-        void execute(table_method_def_t *methodDef) {
-            MethodState methodState;
-
-            section_table_entry_t *ilHeaderSection = this->getVirtualSection(methodDef->rva);
-            methodState.ILPtr = OFFSET(this->m_dllData, VRA_TO_OFFSET(ilHeaderSection, methodDef->rva + 1));
-            methodState.programCounter = 0;
-
-            u8 *ILPtr = methodState.ILPtr;
-            while (true) {
-                u8 *opcode = OFFSET(ILPtr, methodState.programCounter);
-
-                switch (*opcode) {
-                    case 0x00: // NOP
-                        printf("%d : NOP\n", methodState.programCounter);
-                        methodState.programCounter += 1;
-                        break;
-                    case 0x72: // NOP
-                        printf("%d : LDRSTR\n", methodState.programCounter);
-                        methodState.programCounter += 5;
-                        break;
-                    case 0x28: // CALL
-                        printf("%d : CALL\n", methodState.programCounter);
-                        methodState.programCounter += 5;
-                        break;
-                    case 0x2A: // RET
-                        printf("%d : RET\n", methodState.programCounter);
-                        methodState.programCounter += 1;
-                        return;
-                    default:
-                        printf("%d : Unknown Opcode\n", methodState.programCounter);
-                        return;
-                }
-
-            }
-        }
-
         table_method_def_t* getMethodByToken(u32 methodToken) {
             switch (TABLE_ID(methodToken)) {
                 case TABLE_ID_METHODDEF:
@@ -199,6 +164,24 @@ namespace csharp {
 
         const char* getString(u32 index) {
             return reinterpret_cast<char*>(&this->m_stringsHeap[index]);
+        }
+
+        u8* getData() {
+            return this->m_dllData;
+        }
+
+        u32 getStackSize() {
+            return this->m_optionalHeader->stackReserveSize;
+        }
+
+        section_table_entry_t* getVirtualSection(u64 rva) {
+            for (u8 section = 0; section < this->m_ntHeader->numSections; section++) {
+                if (rva >= this->m_sectionTable[section]->virtualAddress
+                    && rva <  this->m_sectionTable[section]->virtualAddress + this->m_sectionTable[section]->virtualSize)
+                    return this->m_sectionTable[section];
+            }
+
+            return nullptr;
         }
 
     private:
@@ -217,16 +200,6 @@ namespace csharp {
 
         std::vector<std::vector<unspecified_table_t>> m_tildeTableData;
         u8 *m_stringsHeap;
-
-        section_table_entry_t* getVirtualSection(u64 rva) {
-            for (u8 section = 0; section < this->m_ntHeader->numSections; section++) {
-                if (rva >= this->m_sectionTable[section]->virtualAddress
-                 && rva <  this->m_sectionTable[section]->virtualAddress + this->m_sectionTable[section]->virtualSize)
-                    return this->m_sectionTable[section];
-            }
-
-            return nullptr;
-        }
     };
 
 }

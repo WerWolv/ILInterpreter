@@ -13,4 +13,27 @@ using s16 = int16_t;
 using s32 = int32_t;
 using s64 = int64_t;
 
+enum class Type : u8 {
+    Int32                   = 1,
+    Int64                   = 2,
+    Native_int              = 4,
+    F                       = 8,
+    O                       = 16,
+    Native_unsigned_int     = 32,
+    Pointer                 = 64
+};
+
+static u8 getTypeSize(Type type) {
+    switch (type) {
+        case Type::Int32: return 4;
+        case Type::Int64: return 8;
+        case Type::Native_int: return 4;
+        case Type::F: return 8;
+        case Type::O: return 4;
+        case Type::Native_unsigned_int: return 4;
+        case Type::Pointer: return 8;
+        default: return 0;
+    }
+}
+
 #define PACKED __attribute__((packed))

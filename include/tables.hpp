@@ -1,6 +1,6 @@
 #pragma once
 
-namespace csharp {
+namespace ili {
 
 #define TABLE_ID(token) (token >> 24)
 #define TABLE_INDEX(token) (token & 0x00FFFFFF)

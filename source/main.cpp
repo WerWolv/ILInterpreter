@@ -1,11 +1,34 @@
 #include "dll.hpp"
 #include "tables.hpp"
+#include "method.hpp"
+
+static void loadExecutable(std::string path) {
+    static ili::Context context;
+
+    context.dll = new ili::DLL(path);
+    context.dll->validate();
+
+    context.stack = new u8[context.dll->getStackSize()];
+    context.typeStack = new Type[context.dll->getStackSize()];
+
+    context.stackPointer = context.stack;
+    context.framePointer = nullptr;
+    context.typeStackPointer = context.typeStack;
+    context.typeFramePointer = nullptr;
+
+    // Execute Main
+    {
+        auto entryPoint = new ili::Method(context, context.dll->getEntryMethodToken());
+        entryPoint->execute();
+    }
+
+    delete[] context.typeStack;
+    delete[] context.stack;
+    delete   context.dll;
+}
 
 int main() {
-    csharp::DLL dll("Test2.exe");
-    dll.validate();
-    csharp::table_method_def_t* entryPointMethod = dll.getMethodByToken(dll.getEntryMethodToken());
-    printf("Entry point method: %s\n", dll.getString(entryPointMethod->nameIndex));
-    dll.execute(entryPointMethod);
+    loadExecutable("Test.exe");
+
     return 0;
 }
