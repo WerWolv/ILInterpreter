@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include "file_headers.hpp"
 #include "tables.hpp"
+#include "logger.hpp"
 
 #include <string>
 #include <stdio.h>
@@ -21,7 +22,7 @@ namespace ili {
         FILE *dllFile = fopen(filePath.c_str(), "rb");
 
         if (dllFile == nullptr) {
-            printf("Cannot open file %s!", filePath.c_str());
+            Logger::error("Cannot open file %s!", filePath.c_str());
             exit(1);
         }
 
@@ -114,39 +115,39 @@ namespace ili {
 
     void DLL::validate() {
         if (this->m_dosHeader->magic != 0x5A4D) {
-            printf("Invalid DOS Header!\n");
+            Logger::error("Invalid DOS Header!");
             exit(1);
-        } else printf("Valid DOS Header!\n");
+        } else Logger::info("Valid DOS Header!");
 
         if (this->m_ntHeader->magic != 0x00004550) {
-            printf("Invalid NT Header!\n");
+            Logger::error("Invalid NT Header!");
             exit(1);
-        } else printf("Valid NT Header!\n");
+        } else Logger::info("Valid NT Header!");
 
-        printf("Stack size: %lx\n", this->getStackSize());
+        Logger::info("Stack size: %lx", this->getStackSize());
 
         if (this->m_crlRuntimeHeader->headerSize != sizeof(crl_runtime_header_t)) {
-            printf("Invalid CLR Header!\n");
+            Logger::error("Invalid CLR Header!");
             exit(1);
-        } else printf("Valid CLR Header!\n");
+        } else Logger::info("Valid CLR Header!");
 
-        printf("Runtime version: %d.%d\n", this->m_crlRuntimeHeader->runtimeVersionMajor, this->m_crlRuntimeHeader->runtimeVersionMinor);
-        printf("Entrypoint Token: %x\n", this->m_crlRuntimeHeader->entryPointToken);
+        Logger::info("Runtime version: %d.%d", this->m_crlRuntimeHeader->runtimeVersionMajor, this->m_crlRuntimeHeader->runtimeVersionMinor);
+        Logger::info("Entrypoint Token: %x", this->m_crlRuntimeHeader->entryPointToken);
 
         if (this->m_metadata.magic != 0x424A5342) {
-            printf("Invalid Metadata Header!\n");
+            Logger::error("Invalid Metadata Header!");
             exit(1);
-        } else printf("Valid Metadata Header!\n");
+        } else Logger::info("Valid Metadata Header!");
 
-        printf(".NET Framework version: %s\n", this->m_metadata.version);
+        Logger::info(".NET Framework version: %s", this->m_metadata.version);
 
         for (u8 stream = 0; stream < this->m_metadata.streams; stream++) {
-            printf("Found Stream: %s\n", this->m_streamHeaders[stream]->name);
+            Logger::info("Found Stream: %s", this->m_streamHeaders[stream]->name);
 
             if (std::string(this->m_streamHeaders[stream]->name) == "#~") {
                 for (u8 i = 0; i < 64; i++)
                     if (this->m_rows[i] != 0)
-                        printf("  Table 0x%X: %u entries\n", i, this->m_rows[i]);
+                        Logger::info("  Table 0x%X: %u entries", i, this->m_rows[i]);
             }
         }
     }

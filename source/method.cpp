@@ -1,8 +1,6 @@
 #include "method.hpp"
 
-#include <locale>
 #include <string>
-#include <codecvt>
 
 #include "types.hpp"
 #include "tables.hpp"
@@ -194,7 +192,7 @@ namespace ili  {
                         }
                         return;
                     default:
-                        printf("Unknown opcode (%x)!", currOpcode);
+                        Logger::error("Unknown opcode (%x)!", currOpcode);
                         exit(1);
                         break;
                 }
