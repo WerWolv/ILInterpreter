@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstdbool>
+#include <string>
 
 using u8  = uint8_t;
 using u16 = uint16_t;
@@ -12,6 +13,8 @@ using s8  = int8_t;
 using s16 = int16_t;
 using s32 = int32_t;
 using s64 = int64_t;
+
+using namespace std::string_literals;
 
 enum class Type : u8 {
     Int32                   = 1,

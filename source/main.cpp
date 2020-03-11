@@ -1,5 +1,5 @@
 #include "dll.hpp"
-#include "tables.hpp"
+#include "native.hpp"
 #include "method.hpp"
 
 static void loadExecutable(std::string path) {
@@ -16,6 +16,8 @@ static void loadExecutable(std::string path) {
     context.typeStackPointer = context.typeStack;
     context.typeFramePointer = nullptr;
 
+    ili::NativeMethods::loadNXLibrary(context);
+
     // Execute Main
     {
         auto entryPoint = new ili::Method(context, context.dll->getEntryMethodToken());
@@ -28,7 +30,7 @@ static void loadExecutable(std::string path) {
 }
 
 int main() {
-    loadExecutable("Test.exe");
+    loadExecutable("Test2.exe");
 
     return 0;
 }
