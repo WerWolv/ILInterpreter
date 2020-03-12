@@ -16,7 +16,7 @@ namespace ili {
     void Logger::info(const char *format, ...) {
         va_list ap;
         va_start(ap, format);
-        printf("\033%s[%s]\033[0m ", "[0;34m", "INFO");
+        printf("\033%s[%s]\033[0m  ", "[0;34m", "INFO");
         vprintf(format, ap);
         printf("\n");
         va_end(ap);

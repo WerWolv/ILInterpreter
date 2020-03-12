@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <functional>
 #include <cstring>
+#include "logger.hpp"
 
 namespace ili {
 
@@ -53,6 +54,7 @@ namespace ili {
             std::memset(&ret, 0x00, sizeof(T));
             std::memcpy(&ret, stackPointer, getTypeSize(getTypeOnStack()));
 
+            Logger::debug("Popped %d bytes from stack: %08lx", sizeof(T), ret);
 
             return ret;
         }
@@ -65,6 +67,8 @@ namespace ili {
 
             typeStackPointer++;
             stackPointer += sizeof(T);
+
+            Logger::debug("Pushed %d bytes onto stack: %08lx", sizeof(T), val);
         }
     };
 

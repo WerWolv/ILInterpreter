@@ -24,6 +24,8 @@ static void loadExecutable(std::string path) {
         auto entryPoint = new ili::Method(context, context.dll->getEntryMethodToken());
         ili::Variable<s32>* ret = static_cast<ili::Variable<s32>*>(entryPoint->run());
         ili::Logger::info("Program finished with exit code %d", ret->value);
+
+        delete entryPoint;
     }
 
     delete[] context.typeStack;

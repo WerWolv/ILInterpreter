@@ -16,6 +16,18 @@ namespace ili  {
         Logger::debug("Executing method '%s'", this->m_ctx.dll->getString(this->m_methodDef->nameIndex));
     }
 
+    Method::~Method() {
+        for (u16 i = 0; i < 0xFF; i++) {
+            if (this->m_localVariable[i] = nullptr)
+                continue;
+
+            delete this->m_localVariable[i];
+            this->m_localVariable[i] = nullptr;
+        }
+
+        delete this->m_returnVariable;
+    }
+
     VariableBase* Method::run() {
         section_table_entry_t *ilHeaderSection = this->m_ctx.dll->getVirtualSection(this->m_methodDef->rva);
         u8 *methodHeader = OFFSET(this->m_ctx.dll->getData(), VRA_TO_OFFSET(ilHeaderSection, this->m_methodDef->rva));
@@ -230,13 +242,6 @@ namespace ili  {
                     }
                     case OpcodePrefix::Ret: {
                         Logger::debug("Instruction RET");
-                        for (u16 i = 0; i < 0xFF; i++) {
-                            if (this->m_localVariable[i] = nullptr)
-                                continue;
-
-                            delete this->m_localVariable[i];
-                            this->m_localVariable[i] = nullptr;
-                        }
 
                         Type type = this->m_ctx.getTypeOnStack();
                         s32 i;
@@ -352,12 +357,7 @@ namespace ili  {
 
     template<typename T>
     void Method::ldc(Type type, T num) {
-
-        std::memcpy(this->m_ctx.stackPointer, &num, sizeof(T));
-        *this->m_ctx.typeStackPointer = type;
-
-        this->m_ctx.stackPointer += sizeof(T);
-        this->m_ctx.typeStackPointer++;
+        this->m_ctx.push(type, num);
     }
 
 }
