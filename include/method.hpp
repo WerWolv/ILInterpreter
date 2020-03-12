@@ -10,7 +10,7 @@ namespace ili  {
     class Method {
     public:
         Method(Context &ctx, u32 methodToken);
-        void execute();
+        VariableBase* run();
 
     private:
         Context &m_ctx;

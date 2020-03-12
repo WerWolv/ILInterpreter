@@ -1,3 +1,4 @@
+#include <logger.hpp>
 #include "dll.hpp"
 #include "native.hpp"
 #include "method.hpp"
@@ -21,7 +22,8 @@ static void loadExecutable(std::string path) {
     // Execute Main
     {
         auto entryPoint = new ili::Method(context, context.dll->getEntryMethodToken());
-        entryPoint->execute();
+        ili::Variable<s32>* ret = static_cast<ili::Variable<s32>*>(entryPoint->run());
+        ili::Logger::info("Program finished with exit code %d", ret->value);
     }
 
     delete[] context.typeStack;

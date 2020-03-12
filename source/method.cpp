@@ -16,7 +16,7 @@ namespace ili  {
         Logger::debug("Executing method '%s'", this->m_ctx.dll->getString(this->m_methodDef->nameIndex));
     }
 
-    void Method::execute() {
+    VariableBase* Method::run() {
         section_table_entry_t *ilHeaderSection = this->m_ctx.dll->getVirtualSection(this->m_methodDef->rva);
         u8 *methodHeader = OFFSET(this->m_ctx.dll->getData(), VRA_TO_OFFSET(ilHeaderSection, this->m_methodDef->rva));
 
@@ -44,15 +44,14 @@ namespace ili  {
                         Logger::debug("Instruction BREAK");
                         raise(SIGILL);
                         break;
-                    case OpcodePrefix::Call:
-                    {
+                    case OpcodePrefix::Call: {
                         Logger::debug("Instruction CALL");
                         u32 token = this->getNext<u32>();
                         switch (TABLE_ID(token)) {
                             case TABLE_ID_METHODDEF:
                             {
                                 auto calledMethod = new Method(this->m_ctx, token);
-                                calledMethod->execute();
+                                calledMethod->run();
                                 delete calledMethod;
                                 break;
                             }
@@ -66,9 +65,9 @@ namespace ili  {
                                 break;
                             }
                         }
+
                         break;
                     }
-                        break;
                     case OpcodePrefix::Stloc_0:
                         Logger::debug("Instruction STLOC.0");
                         stloc(0);
@@ -181,7 +180,55 @@ namespace ili  {
                         Logger::debug("Instruction BR.S");
                         this->m_programCounter += getNext<s8>();
                         break;
-                    case OpcodePrefix::Ret:
+                    case OpcodePrefix::Add: {
+                        Logger::debug("Instruction ADD");
+                        Type opAType = this->m_ctx.getTypeOnStack(2);
+                        Type opBType = this->m_ctx.getTypeOnStack(1);
+                        Type resType = Type::Invalid;
+
+                        // Type validating
+                        if (opAType == opBType)
+                            resType = opAType;
+
+                        if (opAType == Type::Int32 && opBType == Type::Native_int ||
+                            opAType == Type::Native_int && opBType == Type::Int32)
+                            resType = Type::Native_int;
+
+                        if (opAType == Type::Pointer && (opBType == Type::Int32 || opBType == Type::Native_int) ||
+                            opAType == Type::Pointer && (opBType == Type::Int32 || opBType == Type::Native_int))
+                            resType = Type::Pointer;
+
+                        if (opAType == Type::O || opBType == Type::O || (opAType == Type::Pointer && opBType == Type::Pointer))
+                            resType = Type::Invalid;
+
+                        if (resType == Type::Invalid) {
+                            Logger::error("Add operation performed on invalid types!");
+                            exit(1);
+                        }
+
+                        //Addition
+                        if (opAType == Type::Int32 && opBType == Type::Int32 || opAType == Type::Int32 && opBType == Type::Native_int || opAType == Type::Native_int && opBType == Type::Int32)
+                            this->m_ctx.push<s32>(resType, this->m_ctx.pop<s32>() + this->m_ctx.pop<s32>());
+                        else if (opAType == Type::Int64 && opBType == Type::Int64)
+                            this->m_ctx.push<s64>(resType, this->m_ctx.pop<s64>() + this->m_ctx.pop<s32>());
+                        else if (opAType == Type::Native_int && opBType == Type::Native_int)
+                            this->m_ctx.push<s32>(resType, this->m_ctx.pop<s32>() + this->m_ctx.pop<s32>());
+                        else if (opAType == Type::F && opBType == Type::F)
+                            this->m_ctx.push<double>(resType, this->m_ctx.pop<double>() + this->m_ctx.pop<double>());
+                        else if (opAType == Type::Pointer && opBType == Type::Pointer)
+                            this->m_ctx.push<u64>(resType, this->m_ctx.pop<u64>() + this->m_ctx.pop<u64>());
+                        else if (opAType == Type::Pointer && opBType == Type::Int32)
+                            this->m_ctx.push<u64>(resType, this->m_ctx.pop<s32>() + this->m_ctx.pop<u64>());
+                        else if (opAType == Type::Pointer && opBType == Type::Native_int)
+                            this->m_ctx.push<u64>(resType, this->m_ctx.pop<s32>() + this->m_ctx.pop<u64>());
+                        else if (opAType == Type::Int32 && opBType == Type::Pointer)
+                            this->m_ctx.push<u64>(resType, this->m_ctx.pop<u64>() + this->m_ctx.pop<s32>());
+                        else if (opAType == Type::Native_int && opBType == Type::Pointer)
+                            this->m_ctx.push<u64>(resType, this->m_ctx.pop<u64>() + this->m_ctx.pop<s32>());
+
+                        break;
+                    }
+                    case OpcodePrefix::Ret: {
                         Logger::debug("Instruction RET");
                         for (u16 i = 0; i < 0xFF; i++) {
                             if (this->m_localVariable[i] = nullptr)
@@ -190,7 +237,33 @@ namespace ili  {
                             delete this->m_localVariable[i];
                             this->m_localVariable[i] = nullptr;
                         }
-                        return;
+
+                        Type type = this->m_ctx.getTypeOnStack();
+                        s32 i;
+                        switch (type) {
+                            case Type::Int32:
+                                this->m_returnVariable = new Variable<s32>{type, this->m_ctx.pop<s32>()};
+                                break;
+                            case Type::Int64:
+                                this->m_returnVariable = new Variable<s64>{type, this->m_ctx.pop<s64>()};
+                                break;
+                            case Type::Native_int:
+                                i = this->m_ctx.pop<s32>();
+                                this->m_returnVariable = new Variable<s32>{type, i};
+                                break;
+                            case Type::F:
+                                this->m_returnVariable = new Variable<double>{type, this->m_ctx.pop<double>()};
+                                break;
+                            case Type::O:
+                                this->m_returnVariable = new Variable<u32>{type, this->m_ctx.pop<u32>()};
+                                break;
+                            case Type::Pointer:
+                                this->m_returnVariable = new Variable<u64>{type, this->m_ctx.pop<u64>()};
+                                break;
+                        }
+
+                        return this->m_returnVariable;
+                    }
                     default:
                         Logger::error("Unknown opcode (%x)!", currOpcode);
                         exit(1);
@@ -243,9 +316,6 @@ namespace ili  {
             case Type::O:
                 this->m_localVariable[id] = new Variable<u32>{type, this->m_ctx.pop<u32>()};
                 break;
-            case Type::Native_unsigned_int:
-                this->m_localVariable[id] = new Variable<u32>{type, this->m_ctx.pop<u32>()};
-                break;
             case Type::Pointer:
                 this->m_localVariable[id] = new Variable<u64>{type, this->m_ctx.pop<u64>()};
                 break;
@@ -271,22 +341,23 @@ namespace ili  {
             case Type::O:
                 this->m_ctx.push<u32>(varType, static_cast<Variable<u32>*>(this->m_localVariable[id])->value);
                 break;
-            case Type::Native_unsigned_int:
-                this->m_ctx.push<u32>(varType, static_cast<Variable<u32>*>(this->m_localVariable[id])->value);
-                break;
             case Type::Pointer:
                 this->m_ctx.push<u64>(varType, static_cast<Variable<u64>*>(this->m_localVariable[id])->value);
                 break;
         }
+
+        delete this->m_localVariable[id];
+        this->m_localVariable[id] = nullptr;
     }
 
     template<typename T>
     void Method::ldc(Type type, T num) {
-        Variable<T> var{ type, num };
+
+        std::memcpy(this->m_ctx.stackPointer, &num, sizeof(T));
+        *this->m_ctx.typeStackPointer = type;
 
         this->m_ctx.stackPointer += sizeof(T);
-
-        std::memcpy(this->m_ctx.stackPointer, &var, sizeof(T));
+        this->m_ctx.typeStackPointer++;
     }
 
 }

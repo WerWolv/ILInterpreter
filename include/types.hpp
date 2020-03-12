@@ -17,13 +17,13 @@ using s64 = int64_t;
 using namespace std::string_literals;
 
 enum class Type : u8 {
+    Invalid                 = 0,
     Int32                   = 1,
     Int64                   = 2,
     Native_int              = 4,
     F                       = 8,
     O                       = 16,
-    Native_unsigned_int     = 32,
-    Pointer                 = 64
+    Pointer                 = 32
 };
 
 static u8 getTypeSize(Type type) {
@@ -33,7 +33,6 @@ static u8 getTypeSize(Type type) {
         case Type::Native_int: return 4;
         case Type::F: return 8;
         case Type::O: return 4;
-        case Type::Native_unsigned_int: return 4;
         case Type::Pointer: return 8;
         default: return 0;
     }

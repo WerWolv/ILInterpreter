@@ -39,18 +39,20 @@ namespace ili {
 
 
 
-        Type getTypeOnStack() {
-            return *(typeStackPointer - 1);
+        Type getTypeOnStack(u16 pos = 0) {
+            return *(typeStackPointer - 1 - pos);
         }
 
         template<typename T>
         T pop() {
+            T ret;
+
             typeStackPointer--;
             stackPointer -= sizeof(T);
-            T ret;
 
             std::memset(&ret, 0x00, sizeof(T));
             std::memcpy(&ret, stackPointer, getTypeSize(getTypeOnStack()));
+
 
             return ret;
         }
@@ -59,8 +61,8 @@ namespace ili {
         void push(Type type, T val) {
 
             std::memcpy(stackPointer, &val, getTypeSize(type));
-
             *typeStackPointer = type;
+
             typeStackPointer++;
             stackPointer += sizeof(T);
         }
