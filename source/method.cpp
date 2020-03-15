@@ -12,25 +12,26 @@
 namespace ili  {
 
     Method::Method(Context &ctx, u32 methodToken) : m_ctx(ctx) {
-        this->m_methodDef = this->m_ctx.dll->getMethodDefByToken(methodToken);
-        Logger::debug("Executing method '%s'", this->m_ctx.dll->getString(this->m_methodDef->nameIndex));
+        this->m_methodDef = getDLL()->getMethodDefByMetadataToken(methodToken);
+        Logger::debug("Executing method '%s'", getDLL()->getString(this->m_methodDef->nameIndex));
     }
 
     Method::~Method() {
         for (u16 i = 0; i < 0xFF; i++) {
-            if (this->m_localVariable[i] = nullptr)
+            if (this->m_localVariable[i] == nullptr)
                 continue;
 
             delete this->m_localVariable[i];
             this->m_localVariable[i] = nullptr;
         }
 
-        delete this->m_returnVariable;
+        if (this->m_returnVariable != nullptr)
+            delete this->m_returnVariable;
     }
 
     VariableBase* Method::run() {
-        section_table_entry_t *ilHeaderSection = this->m_ctx.dll->getVirtualSection(this->m_methodDef->rva);
-        u8 *methodHeader = OFFSET(this->m_ctx.dll->getData(), VRA_TO_OFFSET(ilHeaderSection, this->m_methodDef->rva));
+        section_table_entry_t *ilHeaderSection = getDLL()->getVirtualSection(this->m_methodDef->rva);
+        u8 *methodHeader = OFFSET(getDLL()->getData(), VRA_TO_OFFSET(ilHeaderSection, this->m_methodDef->rva));
 
         if ((*methodHeader & 0x03) == 0x02) // Tiny Header
             this->m_programCounter = methodHeader + 1;
@@ -69,7 +70,7 @@ namespace ili  {
                             }
                             case TABLE_ID_MEMBERREF:
                             {
-                                auto sig = this->m_ctx.dll->getMethodSignature(token);
+                                auto sig = getDLL()->getFullMethodName(token);
                                 Logger::debug("Executing native method %s", sig.c_str());
 
                                 this->m_ctx.nativeFunctions[sig]();
@@ -83,10 +84,12 @@ namespace ili  {
                     case OpcodePrefix::Stloc_0:
                         Logger::debug("Instruction STLOC.0");
                         stloc(0);
+
                         break;
                     case OpcodePrefix::Stloc_1:
                         Logger::debug("Instruction STLOC.1");
                         stloc(1);
+
                         break;
                     case OpcodePrefix::Stloc_2:
                         Logger::debug("Instruction STLOC.2");
@@ -240,8 +243,37 @@ namespace ili  {
 
                         break;
                     }
+                    case OpcodePrefix::Newobj: {
+                        Logger::debug("Instruction NEWOBJ");
+                        u32 token = this->getNext<u32>();
+                        if (TABLE_ID(token) == TABLE_ID_METHODDEF) {
+                            auto ctor = getDLL()->getMethodDefByMetadataToken(token);
+                            u16 typeIndex = getDLL()->findTypeDefWithMethod(token);
+
+                            table_type_def_t *type = getDLL()->getTypeDefByIndex(typeIndex);
+                            table_type_def_t *typeNext = getDLL()->getTypeDefByIndex(typeIndex + 1);
+
+                            Logger::debug("Creating instance of Type %s::%s", getDLL()->getString(type->typeNamespaceIndex), getDLL()->getString(type->typeNameIndex));
+
+                            size_t objSize = 0;
+                            for (u16 i = type->fieldListIndex; i < typeNext->fieldListIndex && i <= getDLL()->getNumTableRows(TABLE_ID_FIELD); i++) {
+                                auto field = getDLL()->getFieldByIndex(i);
+
+                                Logger::debug("  Field %s", getDLL()->getString(field->nameIndex));
+                            }
+
+                            // TODO: Calculate size to allocate, execute ctor, push correct object to stack
+                            this->m_ctx.push<u64>(Type::O, 0);
+                        }
+                        break;
+                    }
                     case OpcodePrefix::Ret: {
                         Logger::debug("Instruction RET");
+
+                        if (this->m_returnVariable != nullptr) {
+                            delete this->m_returnVariable;
+                            this->m_returnVariable = nullptr;
+                        }
 
                         Type type = this->m_ctx.getTypeOnStack();
                         s32 i;
@@ -296,6 +328,10 @@ namespace ili  {
         return value;
     }
 
+    DLL* Method::getDLL() {
+        return this->m_ctx.dll;
+    }
+
     // Instruction Implementations
 
     void Method::stloc(u8 id) {
@@ -319,7 +355,7 @@ namespace ili  {
                 this->m_localVariable[id] = new Variable<double>{type, this->m_ctx.pop<double>()};
                 break;
             case Type::O:
-                this->m_localVariable[id] = new Variable<u32>{type, this->m_ctx.pop<u32>()};
+                this->m_localVariable[id] = new Variable<u64>{type, this->m_ctx.pop<u64>()};
                 break;
             case Type::Pointer:
                 this->m_localVariable[id] = new Variable<u64>{type, this->m_ctx.pop<u64>()};
@@ -344,14 +380,15 @@ namespace ili  {
                 this->m_ctx.push<double>(varType, static_cast<Variable<double>*>(this->m_localVariable[id])->value);
                 break;
             case Type::O:
-                this->m_ctx.push<u32>(varType, static_cast<Variable<u32>*>(this->m_localVariable[id])->value);
+                this->m_ctx.push<u64>(varType, static_cast<Variable<u32>*>(this->m_localVariable[id])->value);
                 break;
             case Type::Pointer:
                 this->m_ctx.push<u64>(varType, static_cast<Variable<u64>*>(this->m_localVariable[id])->value);
                 break;
         }
+        if (this->m_localVariable[id] != nullptr)
+            delete this->m_localVariable[id];
 
-        delete this->m_localVariable[id];
         this->m_localVariable[id] = nullptr;
     }
 

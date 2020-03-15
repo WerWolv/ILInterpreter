@@ -83,13 +83,13 @@ namespace ili {
 
                     for (u8 i = 0; i < 64; i++) {
                         if ((tildeStream->valid & (1ULL << i)) == (1ULL << i)) {
-                            this->m_rows[i] = *reinterpret_cast<u32*>(currentDataPtr);
+                            this->m_numRows[i] = *reinterpret_cast<u32*>(currentDataPtr);
                             currentDataPtr += sizeof(u32);
                         }
                     }
 
                     for (u8 i = 0; i < 64; i++) {
-                        u32 count = this->m_rows[i];
+                        u32 count = this->m_numRows[i];
 
                         this->m_tildeTableData.push_back({});
                         if (count != 0) {
@@ -104,6 +104,8 @@ namespace ili {
                     this->m_stringsHeap = OFFSET(metadataBase, this->m_streamHeaders[stream]->offset);
                 } else if (std::string(this->m_streamHeaders[stream]->name) == "#US") {
                     this->m_userStringsHeap = OFFSET(metadataBase, this->m_streamHeaders[stream]->offset);
+                } else if (std::string(this->m_streamHeaders[stream]->name) == "#Blob") {
+                    this->m_blobHeap = OFFSET(metadataBase, this->m_streamHeaders[stream]->offset);
                 }
             }
         }
@@ -146,30 +148,42 @@ namespace ili {
 
             if (std::string(this->m_streamHeaders[stream]->name) == "#~") {
                 for (u8 i = 0; i < 64; i++)
-                    if (this->m_rows[i] != 0)
-                        Logger::info("  Table 0x%X: %u entries", i, this->m_rows[i]);
+                    if (this->m_numRows[i] != 0)
+                        Logger::info("  Table 0x%X: %u entries", i, this->m_numRows[i]);
             }
         }
     }
 
-    table_method_def_t* DLL::getMethodDefByToken(u32 methodToken) {
-        if (TABLE_ID(methodToken) == TABLE_ID_METHODDEF)
-            return reinterpret_cast<table_method_def_t*>(this->m_tildeTableData[TABLE_ID(methodToken)][TABLE_INDEX(methodToken) - 1].base);
+    table_method_def_t* DLL::getMethodDefByMetadataToken(u32 token) {
+        if (TABLE_ID(token) == TABLE_ID_METHODDEF)
+            return reinterpret_cast<table_method_def_t*>(this->m_tildeTableData[TABLE_ID(token)][TABLE_INDEX(token) - 1].base);
         else return nullptr;
     }
 
-    table_member_ref_t* DLL::getMemberRefByToken(u32 memberToken) {
-        if (TABLE_ID(memberToken) == TABLE_ID_MEMBERREF)
-            return reinterpret_cast<table_member_ref_t*>(this->m_tildeTableData[TABLE_ID(memberToken)][TABLE_INDEX(memberToken) - 1].base);
+    table_member_ref_t* DLL::getMemberRefByMetadataToken(u32 token) {
+        if (TABLE_ID(token) == TABLE_ID_MEMBERREF)
+            return reinterpret_cast<table_member_ref_t*>(this->m_tildeTableData[TABLE_ID(token)][TABLE_INDEX(token) - 1].base);
         else return nullptr;
     }
 
-    table_type_ref_t* DLL::getTypeRefByToken(u32 typeToken) {
-        return reinterpret_cast<table_type_ref_t*>(this->m_tildeTableData[TABLE_ID_TYPEREF][(typeToken >> 3) - 1].base);
+    table_method_def_t * DLL::getMethodDefByIndex(u32 index) {
+        return reinterpret_cast<table_method_def_t*>(this->m_tildeTableData[TABLE_ID_METHODDEF][index - 1].base);
     }
 
-    table_assembly_ref_t* DLL::getAssemblyRefByToken(u32 assemblyToken) {
-        return reinterpret_cast<table_assembly_ref_t*>(this->m_tildeTableData[TABLE_ID_ASSEMBLYREF][(assemblyToken >> 2) - 1].base);
+    table_type_ref_t* DLL::getTypeRefByIndex(u32 index) {
+        return reinterpret_cast<table_type_ref_t*>(this->m_tildeTableData[TABLE_ID_TYPEREF][index - 1].base);
+    }
+
+    table_type_def_t* DLL::getTypeDefByIndex(u32 index) {
+        return reinterpret_cast<table_type_def_t*>(this->m_tildeTableData[TABLE_ID_TYPEDEF][index - 1].base);
+    }
+
+    table_assembly_ref_t* DLL::getAssemblyRefByIndex(u32 index) {
+        return reinterpret_cast<table_assembly_ref_t*>(this->m_tildeTableData[TABLE_ID_ASSEMBLYREF][index - 1].base);
+    }
+
+    table_field_t* DLL::getFieldByIndex(u32 index) {
+        return reinterpret_cast<table_field_t*>(this->m_tildeTableData[TABLE_ID_FIELD][index - 1].base);
     }
 
     u32 DLL::getEntryMethodToken() {
@@ -180,11 +194,38 @@ namespace ili {
         return reinterpret_cast<char*>(&this->m_stringsHeap[index]);
     }
 
+    u32 DLL::getBlobSize(u32 index) {
+        switch (getBlobHeaderSize(index)) {
+            case 1: return this->m_userStringsHeap[index];
+            case 2: return ((this->m_userStringsHeap[index] & 0x3F) << 8) + this->m_userStringsHeap[index + 1];
+            case 4: return ((this->m_userStringsHeap[index] & 0x1F) << 24)
+                            + (this->m_userStringsHeap[index + 1] << 16)
+                            + (this->m_userStringsHeap[index + 2] << 8)
+                            +  this->m_userStringsHeap[index + 3];
+            default: return 0;
+        }
+    }
+
+    u8 DLL::getBlobHeaderSize(u32 index) {
+        if ((this->m_userStringsHeap[index] & 0x80) == 0x00)
+            return 1;
+        if ((this->m_userStringsHeap[index] & 0xC0) == 0x80)
+            return 2;
+        if ((this->m_userStringsHeap[index] & 0xE0) == 0xC0)
+            return 4;
+
+        return 0;
+    }
+
     const char16_t* DLL::getUserString(u32 index) {
         if ((index >> 24) == 0x70)
-            return reinterpret_cast<char16_t*>(&this->m_userStringsHeap[index & 0x00FFFFFF] + 1);
+            return reinterpret_cast<char16_t*>(&this->m_userStringsHeap[index & 0x00FFFFFF] + getBlobHeaderSize(index));
 
         return nullptr;
+    }
+
+    u8* DLL::getBlob(u32 index) {
+        return &this->m_blobHeap[index + getBlobHeaderSize(index)];
     }
 
     u8* DLL::getData() {
@@ -195,10 +236,10 @@ namespace ili {
         return this->m_optionalHeader->stackReserveSize;
     }
 
-    std::string DLL::getMethodSignature(u32 methodToken) {
-        auto memberRef = this->getMemberRefByToken(methodToken);
-        auto typeRef = this->getTypeRefByToken(memberRef->classIndex);
-        auto assemblyRef = this->getAssemblyRefByToken(typeRef->resolutionScopeIndex);
+    std::string DLL::getFullMethodName(u32 methodToken) {
+        auto memberRef = this->getMemberRefByMetadataToken(methodToken);
+        auto typeRef = this->getTypeRefByIndex(INDEX_INDEX(memberRef->classIndex, MEMBER_REF_PARENT));
+        auto assemblyRef = this->getAssemblyRefByIndex(INDEX_INDEX(typeRef->resolutionScopeIndex, RESOLUTION_SCOPE));
 
         auto assembly = this->getString(assemblyRef->nameIndex);
         auto nameSpace = this->getString(typeRef->typeNamespaceIndex);
@@ -222,6 +263,47 @@ namespace ili {
         }
 
         return nullptr;
+    }
+
+    u16 DLL::findTypeDefWithMethod(u32 methodToken) {
+        table_method_def_t *methodToFind = this->getMethodDefByMetadataToken(methodToken);
+
+        if (methodToFind == nullptr)
+            return 0;
+
+        // Check all rows in the typedef table except the last one for if it contains the method
+        for (u32 i = 0; i < this->m_numRows[TABLE_ID_METHODDEF] - 1; i++) {
+            table_type_def_t* currTypeDef = reinterpret_cast<table_type_def_t*>(this->m_tildeTableData[TABLE_ID_TYPEDEF][i].base);
+            table_type_def_t* nextTypeDef = reinterpret_cast<table_type_def_t*>(this->m_tildeTableData[TABLE_ID_TYPEDEF][i + 1].base);
+
+            table_method_def_t* currMethodDef = this->getMethodDefByIndex(currTypeDef->methodListIndex);
+            table_method_def_t* nextMethodDef = this->getMethodDefByIndex(nextTypeDef->methodListIndex);
+
+            if (methodToFind >= currMethodDef && methodToFind < nextMethodDef)
+                return i + 1;
+        }
+
+        // When the method hasn't been found in the previous rows, it has to be in the last one
+        // since if it wouldn't exist at all, methodToFind would have been nullptr
+        return this->m_numRows[TABLE_ID_METHODDEF];
+    }
+
+    table_class_layout_t* DLL::getClassLayoutOfType(table_type_def_t *typeDef) {
+        for (u32 i = 0; i < this->m_numRows[TABLE_ID_CLASS_LAYOUT]; i++) {
+            table_class_layout_t *currClassLayout = reinterpret_cast<table_class_layout_t*>(this->m_tildeTableData[TABLE_ID_CLASS_LAYOUT][i].base);
+
+            if (reinterpret_cast<table_type_def_t*>(this->m_tildeTableData[TABLE_ID_TYPEDEF][currClassLayout->parentIndex].base) == typeDef)
+                return currClassLayout;
+        }
+
+        return nullptr;
+    }
+
+    u32 DLL::getNumTableRows(u8 index) {
+        if (index >= sizeof(this->m_numRows))
+            return 0;
+
+        return this->m_numRows[index];
     }
 
 }

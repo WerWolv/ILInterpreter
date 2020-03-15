@@ -2,10 +2,10 @@
 
 #include "types.hpp"
 
-#include <stack>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <list>
 #include <functional>
 #include <cstring>
 #include "logger.hpp"
@@ -21,12 +21,20 @@ namespace ili {
         T value;
     };
 
+    struct HeapReference {
+        u32 typeIndex;
+        u8 *heapPointer;
+    };
+
     class Method;
     class DLL;
 
 
     struct Context {
         DLL *dll = nullptr;
+
+        u8 *heap = nullptr;
+        std::list<HeapReference> heapReferences;
 
         u8 *stackPointer = nullptr;
         u8 *framePointer = nullptr;
@@ -48,11 +56,28 @@ namespace ili {
         T pop() {
             T ret;
 
+            if (stackPointer <= stack) {
+                Logger::error("Popped %d bytes from the stack but the stack is empty!", sizeof(T));
+                exit(1);
+            }
+
+            size_t sizeToPop = getTypeSize(getTypeOnStack());
+
+            if (sizeToPop > sizeof(T)) {
+                Logger::error("Popped %d bytes into %d byte return value!", sizeToPop, sizeof(T));
+                exit(1);
+            }
+
             typeStackPointer--;
             stackPointer -= sizeof(T);
 
+            if (stackPointer < stack) {
+                Logger::error("Popped %d which was more than the stack held!", sizeof(T));
+                exit(1);
+            }
+
             std::memset(&ret, 0x00, sizeof(T));
-            std::memcpy(&ret, stackPointer, getTypeSize(getTypeOnStack()));
+            std::memcpy(&ret, stackPointer, sizeToPop);
 
             Logger::debug("Popped %d bytes from stack: %08lx", sizeof(T), ret);
 

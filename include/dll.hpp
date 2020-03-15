@@ -22,16 +22,19 @@ namespace ili {
 
         void validate();
 
-        table_method_def_t* getMethodDefByToken(u32 methodToken);
-        table_member_ref_t* getMemberRefByToken(u32 memberToken);
-        table_type_ref_t* getTypeRefByToken(u32 typeToken);
-        table_assembly_ref_t* getAssemblyRefByToken(u32 assemblyToken);
+        table_method_def_t* getMethodDefByMetadataToken(u32 methodToken);
+        table_member_ref_t* getMemberRefByMetadataToken(u32 memberToken);
+        table_method_def_t* getMethodDefByIndex(u32 index);
+        table_type_def_t* getTypeDefByIndex(u32 index);
+        table_type_ref_t* getTypeRefByIndex(u32 index);
+        table_assembly_ref_t* getAssemblyRefByIndex(u32 index);
+        table_field_t* getFieldByIndex(u32 index);
 
         u32 getEntryMethodToken();
 
         const char* getString(u32 index);
-
         const char16_t* getUserString(u32 index);
+        u8 *getBlob(u32 index);
 
         u8* getData();
 
@@ -39,8 +42,16 @@ namespace ili {
 
         section_table_entry_t* getVirtualSection(u64 rva);
 
-        std::string getMethodSignature(u32 methodToken);
+        std::string getFullMethodName(u32 methodToken);
         std::string decodeUserString(u32 token);
+
+        u16 findTypeDefWithMethod(u32 methodToken);
+        table_class_layout_t* getClassLayoutOfType(table_type_def_t *typeDef);
+
+        u32 getBlobSize(u32 index);
+        u8 getBlobHeaderSize(u32 index);
+
+        u32 getNumTableRows(u8 index);
 
     private:
         u8 *m_dllData;
@@ -54,11 +65,12 @@ namespace ili {
         crl_runtime_header_t *m_crlRuntimeHeader;
         metadata_t m_metadata = { 0 };
         std::vector<stream_header_t*> m_streamHeaders;
-        u32 m_rows[64] = { 0 };
+        u32 m_numRows[64] = { 0 };
 
         std::vector<std::vector<unspecified_table_t>> m_tildeTableData;
         u8 *m_stringsHeap;
         u8 *m_userStringsHeap;
+        u8 *m_blobHeap;
     };
 
 }

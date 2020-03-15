@@ -28,6 +28,8 @@ namespace ili  {
         template<typename T>
         T getNext();
 
+        DLL* getDLL();
+
         // Instruction Implementations
 
         void stloc(u8 id);
