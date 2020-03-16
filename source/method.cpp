@@ -24,12 +24,9 @@ namespace ili  {
             delete this->m_localVariable[i];
             this->m_localVariable[i] = nullptr;
         }
-
-        if (this->m_returnVariable != nullptr)
-            delete this->m_returnVariable;
     }
 
-    VariableBase* Method::run() {
+    void Method::run() {
         section_table_entry_t *ilHeaderSection = getDLL()->getVirtualSection(this->m_methodDef->rva);
         u8 *methodHeader = OFFSET(getDLL()->getData(), VRA_TO_OFFSET(ilHeaderSection, this->m_methodDef->rva));
 
@@ -60,24 +57,7 @@ namespace ili  {
                     case OpcodePrefix::Call: {
                         Logger::debug("Instruction CALL");
                         u32 token = this->getNext<u32>();
-                        switch (TABLE_ID(token)) {
-                            case TABLE_ID_METHODDEF:
-                            {
-                                auto calledMethod = new Method(this->m_ctx, token);
-                                calledMethod->run();
-                                delete calledMethod;
-                                break;
-                            }
-                            case TABLE_ID_MEMBERREF:
-                            {
-                                auto sig = getDLL()->getFullMethodName(token);
-                                Logger::debug("Executing native method %s", sig.c_str());
-
-                                this->m_ctx.nativeFunctions[sig]();
-
-                                break;
-                            }
-                        }
+                        call(token); // TODO: Handle return value
 
                         break;
                     }
@@ -187,6 +167,9 @@ namespace ili  {
                         Logger::debug("Instruction LDSTR");
                         this->m_ctx.push<u32>(Type::O, getNext<u32>());
                         break;
+                    case OpcodePrefix ::Ldarg_0:
+                        Logger::debug("Instruction LDARG.0");
+                        break;
                     case OpcodePrefix::Br:
                         Logger::debug("Instruction BR");
                         this->m_programCounter = methodStart + getNext<s32>();
@@ -205,12 +188,12 @@ namespace ili  {
                         if (opAType == opBType)
                             resType = opAType;
 
-                        if (opAType == Type::Int32 && opBType == Type::Native_int ||
-                            opAType == Type::Native_int && opBType == Type::Int32)
+                        if ((opAType == Type::Int32 && opBType == Type::Native_int) ||
+                            (opAType == Type::Native_int && opBType == Type::Int32))
                             resType = Type::Native_int;
 
-                        if (opAType == Type::Pointer && (opBType == Type::Int32 || opBType == Type::Native_int) ||
-                            opAType == Type::Pointer && (opBType == Type::Int32 || opBType == Type::Native_int))
+                        if ((opAType == Type::Pointer && (opBType == Type::Int32 || opBType == Type::Native_int)) ||
+                            (opAType == Type::Pointer && (opBType == Type::Int32 || opBType == Type::Native_int)))
                             resType = Type::Pointer;
 
                         if (opAType == Type::O || opBType == Type::O || (opAType == Type::Pointer && opBType == Type::Pointer))
@@ -222,7 +205,7 @@ namespace ili  {
                         }
 
                         //Addition
-                        if (opAType == Type::Int32 && opBType == Type::Int32 || opAType == Type::Int32 && opBType == Type::Native_int || opAType == Type::Native_int && opBType == Type::Int32)
+                        if ((opAType == Type::Int32 && opBType == Type::Int32) || (opAType == Type::Int32 && opBType == Type::Native_int) || (opAType == Type::Native_int && opBType == Type::Int32))
                             this->m_ctx.push<s32>(resType, this->m_ctx.pop<s32>() + this->m_ctx.pop<s32>());
                         else if (opAType == Type::Int64 && opBType == Type::Int64)
                             this->m_ctx.push<s64>(resType, this->m_ctx.pop<s64>() + this->m_ctx.pop<s32>());
@@ -247,7 +230,6 @@ namespace ili  {
                         Logger::debug("Instruction NEWOBJ");
                         u32 token = this->getNext<u32>();
                         if (TABLE_ID(token) == TABLE_ID_METHODDEF) {
-                            auto ctor = getDLL()->getMethodDefByMetadataToken(token);
                             u16 typeIndex = getDLL()->findTypeDefWithMethod(token);
 
                             table_type_def_t *type = getDLL()->getTypeDefByIndex(typeIndex);
@@ -258,51 +240,42 @@ namespace ili  {
                             size_t objSize = 0;
                             for (u16 i = type->fieldListIndex; i < typeNext->fieldListIndex && i <= getDLL()->getNumTableRows(TABLE_ID_FIELD); i++) {
                                 auto field = getDLL()->getFieldByIndex(i);
+                                auto sig = getDLL()->getBlob(field->signatureIndex);
+                                auto sigSize = getDLL()->getBlobSize(field->signatureIndex);
 
-                                Logger::debug("  Field %s", getDLL()->getString(field->nameIndex));
+                                size_t fieldSize = getSignatureElementTypeSize(static_cast<SignatureElementType>(*(sig + sigSize - 1)));
+
+                                objSize += fieldSize;
+
+                                Logger::debug("  Field %s [0x%02x]", getDLL()->getString(field->nameIndex), fieldSize);
                             }
 
-                            // TODO: Calculate size to allocate, execute ctor, push correct object to stack
-                            this->m_ctx.push<u64>(Type::O, 0);
+                            Logger::debug("Allocating %d bytes on the heap", objSize);
+
+                            u8 *newMemory = nullptr;
+                            if (this->m_ctx.heapReferences.empty()) {
+                                newMemory = this->m_ctx.heap;
+                            } else {
+                                auto lastElement = this->m_ctx.heapReferences.back();
+                                newMemory = lastElement.heapPointer + lastElement.size;
+                            }
+
+                            std::memset(newMemory, 0x00, objSize);
+                            this->m_ctx.heapReferences.push_back({ newMemory, objSize });
+
+                            this->m_ctx.push<u64>(Type::O, reinterpret_cast<u64>(newMemory));
+
+                            call(token);
                         }
                         break;
                     }
                     case OpcodePrefix::Ret: {
                         Logger::debug("Instruction RET");
 
-                        if (this->m_returnVariable != nullptr) {
-                            delete this->m_returnVariable;
-                            this->m_returnVariable = nullptr;
-                        }
-
-                        Type type = this->m_ctx.getTypeOnStack();
-                        s32 i;
-                        switch (type) {
-                            case Type::Int32:
-                                this->m_returnVariable = new Variable<s32>{type, this->m_ctx.pop<s32>()};
-                                break;
-                            case Type::Int64:
-                                this->m_returnVariable = new Variable<s64>{type, this->m_ctx.pop<s64>()};
-                                break;
-                            case Type::Native_int:
-                                i = this->m_ctx.pop<s32>();
-                                this->m_returnVariable = new Variable<s32>{type, i};
-                                break;
-                            case Type::F:
-                                this->m_returnVariable = new Variable<double>{type, this->m_ctx.pop<double>()};
-                                break;
-                            case Type::O:
-                                this->m_returnVariable = new Variable<u32>{type, this->m_ctx.pop<u32>()};
-                                break;
-                            case Type::Pointer:
-                                this->m_returnVariable = new Variable<u64>{type, this->m_ctx.pop<u64>()};
-                                break;
-                        }
-
-                        return this->m_returnVariable;
+                        return;
                     }
                     default:
-                        Logger::error("Unknown opcode (%x)!", currOpcode);
+                        Logger::error("Unknown opcode (%02x)!", currOpcode);
                         exit(1);
                         break;
                 }
@@ -395,6 +368,30 @@ namespace ili  {
     template<typename T>
     void Method::ldc(Type type, T num) {
         this->m_ctx.push(type, num);
+    }
+
+    void Method::call(u32 methodToken) {
+        switch (TABLE_ID(methodToken)) {
+            case TABLE_ID_METHODDEF:
+            {
+                auto method = getDLL()->getMethodDefByMetadataToken(methodToken);
+                auto sig = getDLL()->getBlob(method->signatureIndex);
+
+                auto calledMethod = new Method(this->m_ctx, methodToken);
+                calledMethod->run();
+                delete calledMethod;
+                break;
+            }
+            case TABLE_ID_MEMBERREF:
+            {
+                auto fullMethodName = getDLL()->getFullMethodName(methodToken);
+                Logger::debug("Executing native method %s", fullMethodName.c_str());
+
+                this->m_ctx.nativeFunctions[fullMethodName]();
+
+                break;
+            }
+        }
     }
 
 }

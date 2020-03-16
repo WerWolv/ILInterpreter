@@ -19,13 +19,19 @@ static void loadExecutable(std::string path) {
     context.typeStackPointer = context.typeStack;
     context.typeFramePointer = nullptr;
 
+    ili::NativeMethods::loadMSCORLIBLibrary(context);
     ili::NativeMethods::loadNXLibrary(context);
 
     // Execute Main
     {
         auto entryPoint = std::make_unique<ili::Method>(context, context.dll->getEntryMethodToken());
-        ili::Variable<s32>* ret = static_cast<ili::Variable<s32>*>(entryPoint->run());
-        ili::Logger::info("Program finished with exit code %d", 0);
+        entryPoint->run();
+
+        if (context.getUsedStackSize() == 0)
+            ili::Logger::info("Program finished");
+        else
+            ili::Logger::info("Program finished with exit code %d", context.pop<s32>());
+
     }
 
     delete[] context.typeStack;

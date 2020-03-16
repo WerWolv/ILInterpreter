@@ -11,7 +11,7 @@ namespace ili  {
     public:
         Method(Context &ctx, u32 methodToken);
         ~Method();
-        VariableBase* run();
+        void run();
 
     private:
         Context &m_ctx;
@@ -20,7 +20,6 @@ namespace ili  {
         u8 *m_programCounter;
 
         VariableBase *m_localVariable[0xFF] = { nullptr };
-        VariableBase *m_returnVariable = nullptr;
 
 
         // General Operations
@@ -36,6 +35,8 @@ namespace ili  {
         void ldloc(u8 id);
         template<typename T>
         void ldc(Type type, T num);
+
+        void call(u32 methodToken);
     };
 }
 

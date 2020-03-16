@@ -13,7 +13,7 @@ namespace ili {
 
 #define OFFSET(base, offset) (reinterpret_cast<u8*>(base) + offset)
 #define VRA_TO_OFFSET(section, rva) section->rawDataPointer + (rva - section->virtualAddress)
-#define ALIGN(value, alignment) ((value) + alignment) & (~(alignment - 1))
+#define ALIGN(value, alignment) (((value) + alignment) & (~(alignment - 1)))
 
     class DLL {
     public:

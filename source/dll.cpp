@@ -14,10 +14,6 @@
 
 namespace ili {
 
-#define OFFSET(base, offset) (reinterpret_cast<u8*>(base) + offset)
-#define VRA_TO_OFFSET(section, rva) section->rawDataPointer + (rva - section->virtualAddress)
-#define ALIGN(value, alignment) ((value) + alignment) & (~(alignment - 1))
-
     DLL::DLL(std::string filePath) {
         FILE *dllFile = fopen(filePath.c_str(), "rb");
 
@@ -67,7 +63,7 @@ namespace ili {
             stream_header_t *currHeader = reinterpret_cast<stream_header_t*>(currentDataPtr);
             for (u8 stream = 0; stream < this->m_metadata.streams; stream++) {
                 this->m_streamHeaders.push_back(currHeader);
-                currentDataPtr += 2 * sizeof(u32) + ALIGN(strlen(currHeader->name), 4);
+                currentDataPtr += (2 * sizeof(u32)) + ALIGN(strlen(currHeader->name), 4);
                 currHeader = reinterpret_cast<stream_header_t*>(currentDataPtr);
             }
 
@@ -196,12 +192,12 @@ namespace ili {
 
     u32 DLL::getBlobSize(u32 index) {
         switch (getBlobHeaderSize(index)) {
-            case 1: return this->m_userStringsHeap[index];
-            case 2: return ((this->m_userStringsHeap[index] & 0x3F) << 8) + this->m_userStringsHeap[index + 1];
-            case 4: return ((this->m_userStringsHeap[index] & 0x1F) << 24)
-                            + (this->m_userStringsHeap[index + 1] << 16)
-                            + (this->m_userStringsHeap[index + 2] << 8)
-                            +  this->m_userStringsHeap[index + 3];
+            case 1: return this->m_blobHeap[index];
+            case 2: return ((this->m_blobHeap[index] & 0x3F) << 8) + this->m_blobHeap[index + 1];
+            case 4: return ((this->m_blobHeap[index] & 0x1F) << 24)
+                            + (this->m_blobHeap[index + 1] << 16)
+                            + (this->m_blobHeap[index + 2] << 8)
+                            +  this->m_blobHeap[index + 3];
             default: return 0;
         }
     }
@@ -246,7 +242,7 @@ namespace ili {
         auto type = this->getString(typeRef->typeNameIndex);
         auto method = this->getString(memberRef->nameIndex);
 
-        return assembly + "::"s + nameSpace + "."s + type + "."s + method;
+        return "["s + assembly + "]"s + nameSpace + "."s + type + "::"s + method;
     }
 
     std::string DLL::decodeUserString(u32 token) {

@@ -65,6 +65,26 @@ enum class SignatureElementType : u8 {
     Pinned
 };
 
+static u8 getSignatureElementTypeSize(SignatureElementType type) {
+    switch (type) {
+        case SignatureElementType::Boolean: return 1;
+        case SignatureElementType::Char: return 2;
+        case SignatureElementType::I1: return 1;
+        case SignatureElementType::U1: return 1;
+        case SignatureElementType::I2: return 2;
+        case SignatureElementType::U2: return 2;
+        case SignatureElementType::I4: return 4;
+        case SignatureElementType::U4: return 4;
+        case SignatureElementType::I8: return 8;
+        case SignatureElementType::U8: return 8;
+        case SignatureElementType::R4: return 4;
+        case SignatureElementType::R8: return 8;
+        case SignatureElementType::String: return 8;
+        case SignatureElementType::Ptr: return 8;
+        default: return 0;
+    }
+}
+
 static u8 getTypeSize(Type type) {
     switch (type) {
         case Type::Int32: return 4;

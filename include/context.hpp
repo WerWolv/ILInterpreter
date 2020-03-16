@@ -22,8 +22,8 @@ namespace ili {
     };
 
     struct HeapReference {
-        u32 typeIndex;
         u8 *heapPointer;
+        size_t size;
     };
 
     class Method;
@@ -79,7 +79,7 @@ namespace ili {
             std::memset(&ret, 0x00, sizeof(T));
             std::memcpy(&ret, stackPointer, sizeToPop);
 
-            Logger::debug("Popped %d bytes from stack: %08lx", sizeof(T), ret);
+            Logger::debug("Popped %d bytes from stack: %016llx", sizeof(T), ret);
 
             return ret;
         }
@@ -93,7 +93,11 @@ namespace ili {
             typeStackPointer++;
             stackPointer += sizeof(T);
 
-            Logger::debug("Pushed %d bytes onto stack: %08lx", sizeof(T), val);
+            Logger::debug("Pushed %d bytes onto stack: %016llx", sizeof(T), val);
+        }
+
+        u32 getUsedStackSize() {
+            return this->stackPointer - this->stack;
         }
     };
 
