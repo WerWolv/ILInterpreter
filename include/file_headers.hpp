@@ -5,7 +5,7 @@
 namespace ili {
 
     typedef struct PACKED {
-        u16 magic;              // MZ
+        char magic[2];              // MZ
         u8 unused[0x3C];
         u16 peHeaderPointer;    // Offset 0x3C
     } dos_header_t;
@@ -17,7 +17,7 @@ namespace ili {
     static_assert(sizeof(dos_stub_t) == 0x40, "dos_stub_t size invalid!");
 
     typedef struct PACKED {
-        u32 magic;              // PE\0\0 (0x00004550)
+        char magic[4];              // PE\0\0 (0x00004550)
         u16 machine;
         u16 numSections;
         u32 timeDateStamp;
@@ -35,17 +35,16 @@ namespace ili {
     static_assert(sizeof(table_t) == 0x08, "table_t size invalid!");
 
     typedef struct PACKED {
-        u16 magic;
+        char magic[2];
         u8 linkerVersionMajor;
         u8 linkerVersionMinor;
         u32 codeSize;
-        u32 bssSize;
         u32 dataSize;
+        u32 bssSize;
         u32 entryPointRVA;
         u32 codeBaseRVA;
-        u32 dataBaseRVA;
 
-        u32 imageBase;
+        u64 imageBase;
         u32 sectionAlignment;
         u32 fileAlignment;
         u16 osVersionMajor;
@@ -60,10 +59,10 @@ namespace ili {
         u32 checksum;
         u16 subsystem;
         u16 dllCharacteristics;
-        u32 stackReserveSize;
-        u32 stackCommitSize;
-        u32 heapReserveSize;
-        u32 heapCommitSize;
+        u64 stackReserveSize;
+        u64 stackCommitSize;
+        u64 heapReserveSize;
+        u64 heapCommitSize;
         u32 loaderFlags;
         u32 numRvaAndSizes;
 
@@ -84,7 +83,6 @@ namespace ili {
         table_t crlRuntimeHeader;
         u64 unused;
     } optional_header_t;
-    static_assert(sizeof(optional_header_t) == 0xE0, "optional_header_t size invalid!");
 
     typedef struct PACKED {
         char name[8];
@@ -123,7 +121,7 @@ namespace ili {
     } stream_header_t;
 
     typedef struct PACKED {
-        u32 magic;
+        char magic[4];
         u16 versionMajor;
         u16 versionMinor;
         u32 reserved;

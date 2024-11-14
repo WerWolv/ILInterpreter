@@ -3,6 +3,8 @@
 #include "native.hpp"
 #include "method.hpp"
 
+#include <windows.h>
+
 static void loadExecutable(std::string path) {
     static ili::Context context;
 
@@ -41,7 +43,9 @@ static void loadExecutable(std::string path) {
 }
 
 int main() {
-    loadExecutable("Test2.exe");
+    auto hConsole = ::GetStdHandle(STD_OUTPUT_HANDLE);
+    ::SetConsoleMode(hConsole, ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT);
+    loadExecutable("test/example/bin/Debug/net8.0/win-x64/example.dll");
 
     return 0;
 }

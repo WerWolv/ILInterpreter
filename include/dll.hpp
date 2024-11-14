@@ -7,6 +7,7 @@
 #include <string>
 #include <stdio.h>
 #include <cstring>
+#include <span>
 #include <vector>
 
 namespace ili {
@@ -33,7 +34,7 @@ namespace ili {
         u32 getEntryMethodToken();
 
         const char* getString(u32 index);
-        const char16_t* getUserString(u32 index);
+        std::span<u8> getUserString(u32 index);
         u8 *getBlob(u32 index);
 
         u8* getData();

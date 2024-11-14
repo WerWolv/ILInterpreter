@@ -6,11 +6,14 @@
 #include "logger.hpp"
 
 #include <string>
-#include <stdio.h>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 #include <codecvt>
 #include <locale>
+#include <span>
+
+using namespace std::literals::string_view_literals;
 
 namespace ili {
 
@@ -112,12 +115,12 @@ namespace ili {
     }
 
     void DLL::validate() {
-        if (this->m_dosHeader->magic != 0x5A4D) {
+        if (std::memcmp(this->m_dosHeader->magic, "MZ", 2) != 0) {
             Logger::error("Invalid DOS Header!");
             exit(1);
         } else Logger::info("Valid DOS Header!");
 
-        if (this->m_ntHeader->magic != 0x00004550) {
+        if (std::memcmp(this->m_ntHeader->magic, "PE\x00\x00", 4) != 0) {
             Logger::error("Invalid NT Header!");
             exit(1);
         } else Logger::info("Valid NT Header!");
@@ -132,7 +135,7 @@ namespace ili {
         Logger::info("Runtime version: %d.%d", this->m_crlRuntimeHeader->runtimeVersionMajor, this->m_crlRuntimeHeader->runtimeVersionMinor);
         Logger::info("Entrypoint Token: %x", this->m_crlRuntimeHeader->entryPointToken);
 
-        if (this->m_metadata.magic != 0x424A5342) {
+        if (std::memcmp(this->m_metadata.magic, "BSJB", 4) != 0) {
             Logger::error("Invalid Metadata Header!");
             exit(1);
         } else Logger::info("Valid Metadata Header!");
@@ -213,11 +216,19 @@ namespace ili {
         return 0;
     }
 
-    const char16_t* DLL::getUserString(u32 index) {
-        if ((index >> 24) == 0x70)
-            return reinterpret_cast<char16_t*>(&this->m_userStringsHeap[index & 0x00FFFFFF] + getBlobHeaderSize(index));
+    std::span<u8> DLL::getUserString(u32 index) {
+        if ((index >> 24) == 0x70) {
+            index = index & 0x00FFFFFF;
 
-        return nullptr;
+            auto blobHeaderSize = getBlobHeaderSize(index);
+            auto string = &this->m_userStringsHeap[index] + blobHeaderSize;
+            u32 size = 0;
+            std::memcpy(&size, &this->m_userStringsHeap[index], blobHeaderSize);
+
+            return { string, size };
+        }
+
+        return {};
     }
 
     u8* DLL::getBlob(u32 index) {
@@ -248,7 +259,7 @@ namespace ili {
     std::string DLL::decodeUserString(u32 token) {
         auto utf16String = this->getUserString(token);
         std::wstring_convert<std::codecvt_utf8_utf16<char16_t>,char16_t> conversion;
-        return conversion.to_bytes(utf16String);
+        return conversion.to_bytes(reinterpret_cast<char16_t*>(utf16String.data()), reinterpret_cast<char16_t*>(utf16String.data() + utf16String.size_bytes() - 1));
     }
 
     section_table_entry_t* DLL::getVirtualSection(u64 rva) {

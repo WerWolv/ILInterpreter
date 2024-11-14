@@ -33,6 +33,7 @@ namespace ili  {
 
         void stloc(u8 id);
         void ldloc(u8 id);
+        void ldloca(u8 id);
         template<typename T>
         void ldc(Type type, T num);
 

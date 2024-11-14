@@ -54,7 +54,7 @@ namespace ili {
 
         template<typename T>
         T pop() {
-            T ret;
+            T ret = {};
 
             if (stackPointer <= stack) {
                 Logger::error("Popped %d bytes from the stack but the stack is empty!", sizeof(T));

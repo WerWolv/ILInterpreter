@@ -163,9 +163,13 @@ namespace ili  {
                         Logger::debug("Instruction LDLOC.s");
                         ldloc(getNext<u8>());
                         break;
+                    case OpcodePrefix::Ldloca_s:
+                        Logger::debug("Instruction LDLOCA.s");
+                        ldloca(getNext<u8>());
+                        break;
                     case OpcodePrefix::Ldstr:
                         Logger::debug("Instruction LDSTR");
-                        this->m_ctx.push<u32>(Type::O, getNext<u32>());
+                        this->m_ctx.push<u64>(Type::O, getNext<u32>());
                         break;
                     case OpcodePrefix ::Ldarg_0:
                         Logger::debug("Instruction LDARG.0");
@@ -275,7 +279,7 @@ namespace ili  {
                         return;
                     }
                     default:
-                        Logger::error("Unknown opcode (%02x)!", currOpcode);
+                        Logger::error("Unknown opcode (0x%02x)!", currOpcode);
                         exit(1);
                         break;
                 }
@@ -353,7 +357,7 @@ namespace ili  {
                 this->m_ctx.push<double>(varType, static_cast<Variable<double>*>(this->m_localVariable[id])->value);
                 break;
             case Type::O:
-                this->m_ctx.push<u64>(varType, static_cast<Variable<u32>*>(this->m_localVariable[id])->value);
+                this->m_ctx.push<u64>(varType, static_cast<Variable<u64>*>(this->m_localVariable[id])->value);
                 break;
             case Type::Pointer:
                 this->m_ctx.push<u64>(varType, static_cast<Variable<u64>*>(this->m_localVariable[id])->value);
@@ -363,6 +367,10 @@ namespace ili  {
             delete this->m_localVariable[id];
 
         this->m_localVariable[id] = nullptr;
+    }
+
+    void Method::ldloca(u8 id) {
+        this->m_ctx.push<u64>(Type::Pointer, reinterpret_cast<u64>(this->m_localVariable[id]));
     }
 
     template<typename T>
@@ -379,6 +387,7 @@ namespace ili  {
 
                 auto calledMethod = new Method(this->m_ctx, methodToken);
                 calledMethod->run();
+
                 delete calledMethod;
                 break;
             }
