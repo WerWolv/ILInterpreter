@@ -1,0 +1,9 @@
+[submodule "rewrite/lib/third_party/fmt"]
+	path = rewrite/lib/third_party/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "rewrite/lib/third_party/libwolv"]
+	path = rewrite/lib/third_party/libwolv
+	url = https://github.com/WerWolv/libwolv
+[submodule "rewrite/lib/third_party/magic_enum"]
+	path = rewrite/lib/third_party/magic_enum
+	url = https://github.com/Neargye/magic_enum

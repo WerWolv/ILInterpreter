@@ -171,7 +171,7 @@ namespace ili  {
                         Logger::debug("Instruction LDSTR");
                         this->m_ctx.push<u64>(Type::O, getNext<u32>());
                         break;
-                    case OpcodePrefix ::Ldarg_0:
+                    case OpcodePrefix::Ldarg_0:
                         Logger::debug("Instruction LDARG.0");
                         break;
                     case OpcodePrefix::Br:
