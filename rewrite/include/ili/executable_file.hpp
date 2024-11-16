@@ -33,7 +33,7 @@ namespace ili {
             std::string_view typeName;
             std::string_view methodName;
 
-            [[nodiscard]] operator std::string() const {
+            [[nodiscard]] explicit operator std::string() const {
                 return fmt::format("[{}]{}.{}::{}", assemblyName, namespaceName, typeName, methodName);
             }
 
@@ -93,11 +93,11 @@ namespace ili {
         std::vector<Section> m_sections;
         OptionalHeader *m_optionalHeader = nullptr;
         CRLRuntimeHeader *m_crlRuntimeHeader = nullptr;
-        Metadata m_metadata;
-        u8 *m_metadataPointer;
+        Metadata m_metadata = { };
+        u8 *m_metadataPointer = nullptr;
         std::vector<StreamHeader> m_streamHeaders;
         std::map<QualifiedName, const table::MethodDef*> m_methods;
-        std::array<u64, 64> m_tableRowCounts;
+        std::array<u64, 64> m_tableRowCounts = { };
 
         struct {
             struct {

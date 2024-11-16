@@ -7,13 +7,13 @@ namespace ili::table {
 
     struct Token {
         explicit Token() : Token(0x00) { }
-        explicit Token(u8 id, u32 index) : value(id << 24 | (index & 0x00FF'FFFF)) {}
+        explicit Token(u8 id, u32 index) : value(u32(id) << 24U | (index & 0x00FF'FFFFU)) {}
         explicit Token(u32 value) : value(value) {}
 
         u32 value;
 
-        [[nodiscard]] u8 getId() const { return u8(value >> 24); }
-        [[nodiscard]] u32 getIndex() const { return value & 0x00FF'FFFF; }
+        [[nodiscard]] u8 getId() const { return u8(value >> 24U); }
+        [[nodiscard]] u32 getIndex() const { return value & 0x00FF'FFFFU; }
     };
     static_assert(sizeof(Token) == 4);
 

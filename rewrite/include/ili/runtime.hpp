@@ -2,11 +2,11 @@
 
 #include <list>
 #include <vector>
-#include <generator>
 
 #include <ili/executable_file.hpp>
 #include <ili/tables.hpp>
 #include <ili/opcodes.hpp>
+#include <ili/utils.hpp>
 
 #include <fmt/format.h>
 
@@ -77,21 +77,21 @@ namespace ili {
         switch (type) {
             using enum SignatureElementType;
 
-            case Boolean: return 1;
-            case Char: return 2;
-            case I1: return 1;
-            case U1: return 1;
-            case I2: return 2;
-            case U2: return 2;
-            case I4: return 4;
-            case U4: return 4;
-            case I8: return 8;
-            case U8: return 8;
-            case R4: return 4;
-            case R8: return 8;
-            case String: return 8;
-            case Ptr: return 8;
-            default: return 0;
+            case Boolean:   return 1;
+            case Char:      return 2;
+            case I1:        return 1;
+            case U1:        return 1;
+            case I2:        return 2;
+            case U2:        return 2;
+            case I4:        return 4;
+            case U4:        return 4;
+            case I8:        return 8;
+            case U8:        return 8;
+            case R4:        return 4;
+            case R8:        return 8;
+            case String:    return 8;
+            case Ptr:       return 8;
+            default:        return 0;
         }
     }
 
@@ -113,7 +113,7 @@ namespace ili {
     class Stack {
     public:
         Stack() = default;
-        explicit Stack(std::size_t size) : m_stack(size, 0x00), m_stackPointer(m_stack.data()) {}
+        explicit Stack(std::size_t size) : m_stack(size), m_stackPointer(m_stack.data()) {}
         Stack(const Stack&) = delete;
         Stack(Stack &&other) noexcept {
             m_stack = std::move(other.m_stack);
@@ -185,10 +185,10 @@ namespace ili {
         [[nodiscard]] table::Token getToken() const;
         [[nodiscard]] std::span<const u8> getByteCode() const;
 
-        [[nodiscard]] std::generator<op::Instruction> getInstructions();
+        [[nodiscard]] util::Generator<op::Instruction> getInstructions();
         [[nodiscard]] const Executable* getExecutable() const { return m_executable; }
 
-        [[nodiscard]] auto& getLocalVariable(u8 index) {
+        [[nodiscard]] auto& getLocalVariable(u16 index) {
             return m_localVariables[index];
         }
 
@@ -197,7 +197,7 @@ namespace ili {
         }
 
         void offsetProgramCounter(i64 programCounter) {
-            m_instructionOffset += programCounter;
+            m_instructionOffset = u64(i64(m_instructionOffset) + programCounter);
         }
 
     private:
@@ -222,10 +222,10 @@ namespace ili {
         void brk();
         void call(Method &method, table::Token token);
         void ldstr(Method &method, u32 value);
-        void ldloca(Method &method, u8 id);
+        void ldloca(Method &method, u16 id);
         void ldarg(Method &method, u16 id);
-        void stloc(Method &method, u8 id);
-        void ldloc(Method& method, u8 id);
+        void stloc(Method &method, u16 id);
+        void ldloc(Method& method, u16 id);
         void br(Method &method, i32 offset);
 
     private:

@@ -1,3 +1,4 @@
+#include <codecvt>
 #include <ili/executable_file.hpp>
 #include <ili/utils.hpp>
 
@@ -194,7 +195,8 @@ namespace ili {
                     }
                 }
 
-                for (const auto &[index, count] : m_tableRowCounts | std::views::enumerate) {
+                u32 index = 0;
+                for (const auto &count : m_tableRowCounts) {
                     auto &table = m_streams.tilde.tableData.emplace_back();
                     if (count != 0) {
                         u8 tableSize = getMetadataTableSize(index);
@@ -205,6 +207,8 @@ namespace ili {
                             m_parsePointer += tableSize;
                         }
                     }
+
+                    index += 1;
                 }
             } else if (streamName == "#Strings") {
                 m_streams.string.data = {

@@ -1,3 +1,4 @@
+#include <csignal>
 #include <ili/runtime.hpp>
 
 #include <fmt/format.h>
@@ -54,7 +55,7 @@ namespace ili {
         std::ignore = id;
     }
 
-    void Runtime::stloc(Method& method, u8 id) {
+    void Runtime::stloc(Method& method, u16 id) {
         auto& localVariable = method.getLocalVariable(id);
 
         auto &stack = m_stack;
@@ -72,7 +73,7 @@ namespace ili {
         }
     }
 
-    void Runtime::ldloc(Method& method, u8 id) {
+    void Runtime::ldloc(Method& method, u16 id) {
         auto& localVariable = method.getLocalVariable(id);
         const auto type = localVariable->type;
 
@@ -97,13 +98,13 @@ namespace ili {
     }
 
 
-    void Runtime::ldloca(Method &method, u8 id) {
+    void Runtime::ldloca(Method &method, u16 id) {
         m_stack.push(ValueType::Pointer, reinterpret_cast<u64>(method.getLocalVariable(id).get()));
     }
 
     void Runtime::executeInstructions(Method& method) {
         for (const auto instruction : method.getInstructions()) {
-            fmt::print("{}\n", magic_enum::enum_name(instruction.getOpcode()));
+            fmt::println("{}", magic_enum::enum_name(instruction.getOpcode()));
 
             switch (instruction.getOpcode()) {
                 using enum op::Opcode;

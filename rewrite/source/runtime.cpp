@@ -8,14 +8,14 @@ namespace ili {
         auto &newExecutable = this->m_executables.emplace("", std::move(executable)).first->second;
         m_stack = Stack(newExecutable.getStackSize());
 
-        auto &method = m_methodStack.emplace_back(Method(&newExecutable, newExecutable.getEntrypointMethodToken()));
+        auto &method = m_methodStack.emplace_back(&newExecutable, newExecutable.getEntrypointMethodToken());
 
         executeInstructions(method);
 
         return 0;
     }
 
-    std::generator<op::Instruction> Method::getInstructions() {
+    util::Generator<op::Instruction> Method::getInstructions() {
         const auto bytes = getByteCode();
         while (m_instructionOffset < bytes.size()) {
             const auto instruction = op::Instruction(bytes.subspan(m_instructionOffset));

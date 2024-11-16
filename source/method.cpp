@@ -1,5 +1,6 @@
 #include "method.hpp"
 
+#include <csignal>
 #include <string>
 
 #include "types.hpp"
